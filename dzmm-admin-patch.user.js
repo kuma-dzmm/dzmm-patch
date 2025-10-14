@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DZMM Admin Role Patch + Time Travel
 // @namespace    https://github.com/kuma-dzmm
-// @version      3.0.1
+// @version      3.1.0
 // @description  Auto-inject admin role + Time Travel for message backtracking with 'before' parameter
 // @author       kuma
 // @match        https://www.dzmm.ai/*
@@ -422,21 +422,26 @@
 
         // Set default value to current timestamp if active
         const defaultValue = timeTravelTimestamp
-            ? new Date(parseInt(timeTravelTimestamp)).toISOString().slice(0, 16)
+            ? new Date(parseInt(timeTravelTimestamp)).toISOString()
             : "";
 
         modal.innerHTML = `
             <h2>🕰️ 时光机</h2>
             <div class="time-travel-input-group">
-                <label>选择回溯时间：</label>
-                <input type="datetime-local" id="tt-datetime" value="${defaultValue}" />
+                <label>回溯时间：</label>
+                <input type="text" id="tt-datetime" value="${defaultValue}"
+                       placeholder="如: 2025-09-15T00:00:00Z"
+                       style="font-family: monospace;" />
+                <small style="color: #6b7280; font-size: 12px; display: block; margin-top: 4px;">
+                    支持ISO格式 (2025-09-15T00:00:00Z) 或时间戳 (1726358400000)
+                </small>
             </div>
             ${
             timeTravelTimestamp
                 ? `
                 <div class="time-travel-info">
                     <strong>当前设置：</strong>
-                    <span class="time-travel-current">${new Date(parseInt(timeTravelTimestamp)).toLocaleString()}</span>
+                    <span class="time-travel-current">${new Date(parseInt(timeTravelTimestamp)).toUTCString()}</span>
                 </div>
             `
                 : ""
@@ -479,30 +484,41 @@
 
         // Apply handler
         modal.querySelector("#tt-apply").addEventListener("click", () => {
-            const datetime = modal.querySelector("#tt-datetime").value;
+            const input = modal.querySelector("#tt-datetime").value.trim();
 
-            if (datetime) {
-                // datetime-local returns local time string like "2025-10-01T12:00"
-                // We need to treat it as local time and convert to timestamp
-                const localDate = new Date(datetime);
-                const timestamp = localDate.getTime().toString();
-
-                timeTravelTimestamp = timestamp;
-                globalScope.__timeTravelState.timestamp = timestamp;
-
-                console.log(
-                    "%c⏰ [TIME TRAVEL] Activated:",
-                    "color: #3b82f6; font-weight: bold;",
-                    {
-                        localTime: localDate.toLocaleString(),
-                        utcTime: localDate.toISOString(),
-                        timestamp: timestamp
-                    }
-                );
-                closeModal();
-            } else {
-                alert("请选择日期时间");
+            if (!input) {
+                alert("请输入时间");
+                return;
             }
+
+            let timestamp;
+
+            // Try to parse as numeric timestamp first
+            if (/^\d+$/.test(input)) {
+                timestamp = input;
+            } else {
+                // Try to parse as date string
+                const date = new Date(input);
+                if (isNaN(date.getTime())) {
+                    alert("无法解析时间格式，请输入有效的ISO时间 (如 2025-09-15T00:00:00Z) 或时间戳");
+                    return;
+                }
+                timestamp = date.getTime().toString();
+            }
+
+            timeTravelTimestamp = timestamp;
+            globalScope.__timeTravelState.timestamp = timestamp;
+
+            console.log(
+                "%c⏰ [TIME TRAVEL] Activated:",
+                "color: #3b82f6; font-weight: bold;",
+                {
+                    input: input,
+                    utcTime: new Date(parseInt(timestamp)).toUTCString(),
+                    timestamp: timestamp
+                }
+            );
+            closeModal();
         });
     }
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DZMM Admin Role Patch + Time Travel
 // @namespace    https://github.com/kuma-dzmm
-// @version      3.0.0
+// @version      3.0.1
 // @description  Auto-inject admin role + Time Travel for message backtracking with 'before' parameter
 // @author       kuma
 // @match        https://www.dzmm.ai/*
@@ -482,14 +482,22 @@
             const datetime = modal.querySelector("#tt-datetime").value;
 
             if (datetime) {
-                const timestamp = new Date(datetime).getTime().toString();
+                // datetime-local returns local time string like "2025-10-01T12:00"
+                // We need to treat it as local time and convert to timestamp
+                const localDate = new Date(datetime);
+                const timestamp = localDate.getTime().toString();
+
                 timeTravelTimestamp = timestamp;
                 globalScope.__timeTravelState.timestamp = timestamp;
 
                 console.log(
                     "%c⏰ [TIME TRAVEL] Activated:",
                     "color: #3b82f6; font-weight: bold;",
-                    new Date(parseInt(timestamp)).toLocaleString(),
+                    {
+                        localTime: localDate.toLocaleString(),
+                        utcTime: localDate.toISOString(),
+                        timestamp: timestamp
+                    }
                 );
                 closeModal();
             } else {

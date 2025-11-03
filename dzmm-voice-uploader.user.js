@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DZMM Voice File Uploader
 // @namespace    https://github.com/kuma-dzmm
-// @version      1.0.0
+// @version      1.1.0
 // @description  Add custom audio file upload capability to DZMM.ai chat
 // @author       kuma
 // @match        https://www.dzmm.ai/*
@@ -157,6 +157,52 @@
     }
 
     /**
+     * Find and trigger the voice send callback
+     */
+    function triggerVoiceSend(voiceData) {
+        // Try to find React component instance and call onVoiceReady
+        // This uses React internals to find the component
+        const voiceButton = document.querySelector(
+            'button[aria-label*="说话"], button[title*="说话"]'
+        );
+
+        if (voiceButton) {
+            // Get React fiber node
+            const fiberKey = Object.keys(voiceButton).find(key =>
+                key.startsWith('__reactFiber') || key.startsWith('__reactInternalInstance')
+            );
+
+            if (fiberKey) {
+                let fiber = voiceButton[fiberKey];
+                // Walk up the fiber tree to find the component with onVoiceReady
+                while (fiber) {
+                    if (fiber.memoizedProps?.onVoiceReady) {
+                        if (DEBUG) {
+                            console.log('🎤 [SUCCESS] Found onVoiceReady callback, triggering send...');
+                        }
+                        fiber.memoizedProps.onVoiceReady(voiceData);
+                        return true;
+                    }
+                    fiber = fiber.return;
+                }
+            }
+        }
+
+        // Fallback: dispatch custom event
+        if (DEBUG) {
+            console.log('🎤 [WARN] Could not find onVoiceReady callback, dispatching event...');
+        }
+        const event = new CustomEvent('dzmm-voice-uploaded', {
+            detail: voiceData,
+            bubbles: true,
+            cancelable: true
+        });
+        window.dispatchEvent(event);
+        document.dispatchEvent(event);
+        return false;
+    }
+
+    /**
      * Handle file upload
      */
     async function handleFileUpload(file, uploadButton) {
@@ -191,21 +237,21 @@
             // Upload file
             const result = await uploadVoiceFile(file, duration);
 
-            // Trigger voice message send
-            // Dispatch custom event that the chat system can listen to
-            const event = new CustomEvent('dzmm-voice-uploaded', {
-                detail: result,
-                bubbles: true,
-                cancelable: true
-            });
-            window.dispatchEvent(event);
-            document.dispatchEvent(event);
+            // Trigger voice message send through React callback
+            const sent = triggerVoiceSend(result);
 
             // Show success notification
-            showNotification(
-                `Voice uploaded: ${duration.toFixed(1)}s, ${(result.fileSize / 1024).toFixed(1)}KB`,
-                'success'
-            );
+            if (sent) {
+                showNotification(
+                    `Voice sent: ${duration.toFixed(1)}s, ${(result.fileSize / 1024).toFixed(1)}KB`,
+                    'success'
+                );
+            } else {
+                showNotification(
+                    `Voice uploaded (manual send required): ${duration.toFixed(1)}s`,
+                    'success'
+                );
+            }
 
             // Visual feedback
             uploadButton.classList.add('voice-upload-success');

@@ -218,6 +218,12 @@ MIT License - Feel free to modify and distribute
 
 ## Changelog
 
+### v1.1.0 (2025-11-03)
+- **FIXED**: Automatically sends voice message after upload (no manual send required)
+- Uses React internals to trigger `onVoiceReady` callback
+- Improved success/failure notifications
+- Better error handling with fallback mechanisms
+
 ### v1.0.0 (2025-11-03)
 - Initial release
 - Basic file upload functionality
